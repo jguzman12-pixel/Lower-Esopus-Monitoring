@@ -31,6 +31,16 @@
       opacity: 0.5;
     }
 
+    #qualityControls {
+      margin-bottom: 20px;
+    }
+
+    #qualityControls label {
+      display: inline-block;
+      margin-right: 14px;
+      margin-bottom: 8px;
+    }
+
     table {
       border-collapse: collapse;
       width: 100%;
@@ -47,7 +57,15 @@
       background: #f2f2f2;
     }
 
-    #chart {
+    .chartBox {
+      margin-bottom: 35px;
+    }
+
+    .chartBox h3 {
+      margin-bottom: 10px;
+    }
+
+    .chartBox canvas {
       max-width: 100%;
       height: 350px;
     }
@@ -63,6 +81,8 @@
 
   <button id="downloadButton" disabled>Download Data</button>
 
+  <div id="qualityControls"></div>
+
   <table>
     <thead>
       <tr id="tableHead"></tr>
@@ -70,7 +90,7 @@
     <tbody id="tableBody"></tbody>
   </table>
 
-  <canvas id="chart"></canvas>
+  <div id="chartsContainer"></div>
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -80,50 +100,18 @@
 
     var currentRows = [];
     var currentFileName = 'data.csv';
+    var currentStationName = '';
+    var currentDataType = '';
+    var charts = [];
 
     var stations = [
-      {
-        id: 'station1',
-        name: 'Station 1',
-        lat: 42.0123,
-        lng: -74.1234
-      },
-      {
-        id: 'station2',
-        name: 'Station 2',
-        lat: 42.0456,
-        lng: -74.1567
-      },
-      {
-        id: 'station3',
-        name: 'Station 3',
-        lat: 42.0789,
-        lng: -74.1890
-      },
-      {
-        id: 'station4',
-        name: 'Station 4',
-        lat: 42.1012,
-        lng: -74.2012
-      },
-      {
-        id: 'station5',
-        name: 'Station 5',
-        lat: 42.1345,
-        lng: -74.2345
-      },
-      {
-        id: 'station6',
-        name: 'Station 6',
-        lat: 42.1678,
-        lng: -74.2678
-      },
-      {
-        id: 'station7',
-        name: 'Station 7',
-        lat: 42.1901,
-        lng: -74.2901
-      }
+      { id: 'station1', name: 'Station 1', lat: 42.0123, lng: -74.1234 },
+      { id: 'station2', name: 'Station 2', lat: 42.0456, lng: -74.1567 },
+      { id: 'station3', name: 'Station 3', lat: 42.0789, lng: -74.1890 },
+      { id: 'station4', name: 'Station 4', lat: 42.1012, lng: -74.2012 },
+      { id: 'station5', name: 'Station 5', lat: 42.1345, lng: -74.2345 },
+      { id: 'station6', name: 'Station 6', lat: 42.1678, lng: -74.2678 },
+      { id: 'station7', name: 'Station 7', lat: 42.1901, lng: -74.2901 }
     ];
 
     var map = L.map('map').setView([42.08, -74.18], 11);
@@ -188,16 +176,67 @@
 
         currentRows = rows;
         currentFileName = stationId + '_' + dataType + '.csv';
+        currentStationName = stationName;
+        currentDataType = dataType;
+
         document.getElementById('downloadButton').disabled = false;
 
         updateTable(rows);
-        updateChart(rows, dataType, stationName);
+
+        if (dataType === 'water_quality') {
+          showWaterQualityControls(rows);
+          updateWaterQualityCharts();
+        } else {
+          clearWaterQualityControls();
+          updateFlowChart(rows, stationName);
+        }
       } catch (error) {
         document.getElementById('dataTitle').textContent =
           'Could not load ' + stationName + ' data: ' + error.message;
 
         console.error(error);
       }
+    }
+
+    function showWaterQualityControls(rows) {
+      var controls = document.getElementById('qualityControls');
+      var headers = rows[0].slice(1);
+
+      controls.innerHTML = '<strong>Choose water quality values to graph:</strong><br>';
+
+      headers.forEach(function (header) {
+        controls.innerHTML += `
+          <label>
+            <input
+              type="checkbox"
+              class="qualityCheckbox"
+              value="${header}"
+              checked
+            >
+            ${header}
+          </label>
+        `;
+      });
+
+      controls.querySelectorAll('.qualityCheckbox').forEach(function (checkbox) {
+        checkbox.addEventListener('change', function () {
+          updateWaterQualityCharts();
+        });
+      });
+    }
+
+    function clearWaterQualityControls() {
+      document.getElementById('qualityControls').innerHTML = '';
+    }
+
+    function updateWaterQualityCharts() {
+      var checkedBoxes = document.querySelectorAll('.qualityCheckbox:checked');
+
+      var selectedHeaders = Array.from(checkedBoxes).map(function (box) {
+        return box.value;
+      });
+
+      createIndividualCharts(currentRows, currentStationName, selectedHeaders);
     }
 
     function updateTable(rows) {
@@ -223,32 +262,109 @@
       });
     }
 
-    var chart;
+    function destroyCharts() {
+      charts.forEach(function (chart) {
+        chart.destroy();
+      });
 
-    function updateChart(rows, dataType, stationName) {
+      charts = [];
+      document.getElementById('chartsContainer').innerHTML = '';
+    }
+
+    function createIndividualCharts(rows, stationName, selectedHeaders) {
+      destroyCharts();
+
+      var headers = rows[0];
       var dataRows = rows.slice(1);
 
       var xValues = dataRows.map(function (row) {
         return row[0];
       });
 
-      var yValues = dataRows.map(function (row) {
-        return Number(row[1]);
+      selectedHeaders.forEach(function (header, index) {
+        var columnIndex = headers.indexOf(header);
+
+        var chartBox = document.createElement('div');
+        chartBox.className = 'chartBox';
+
+        var title = document.createElement('h3');
+        title.textContent = stationName + ' - ' + header;
+
+        var canvas = document.createElement('canvas');
+
+        chartBox.appendChild(title);
+        chartBox.appendChild(canvas);
+
+        document.getElementById('chartsContainer').appendChild(chartBox);
+
+        var chart = new Chart(canvas, {
+          type: 'line',
+          data: {
+            labels: xValues,
+            datasets: [{
+              label: header,
+              data: dataRows.map(function (row) {
+                return Number(row[columnIndex]);
+              }),
+              borderColor: getChartColor(index),
+              backgroundColor: 'transparent',
+              tension: 0.2
+            }]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              },
+              y: {
+                title: {
+                  display: true,
+                  text: header
+                }
+              }
+            }
+          }
+        });
+
+        charts.push(chart);
+      });
+    }
+
+    function updateFlowChart(rows, stationName) {
+      destroyCharts();
+
+      var dataRows = rows.slice(1);
+
+      var xValues = dataRows.map(function (row) {
+        return row[0];
       });
 
-      var dataLabel = dataType === 'flow' ? 'Flow' : 'Water Quality';
+      var chartBox = document.createElement('div');
+      chartBox.className = 'chartBox';
 
-      if (chart) {
-        chart.destroy();
-      }
+      var title = document.createElement('h3');
+      title.textContent = stationName + ' - Flow';
 
-      chart = new Chart(document.getElementById('chart'), {
+      var canvas = document.createElement('canvas');
+
+      chartBox.appendChild(title);
+      chartBox.appendChild(canvas);
+
+      document.getElementById('chartsContainer').appendChild(chartBox);
+
+      var chart = new Chart(canvas, {
         type: 'line',
         data: {
           labels: xValues,
           datasets: [{
-            label: stationName + ' - ' + dataLabel,
-            data: yValues,
+            label: 'Flow',
+            data: dataRows.map(function (row) {
+              return Number(row[1]);
+            }),
             borderColor: 'blue',
             backgroundColor: 'rgba(0, 0, 255, 0.1)',
             tension: 0.2
@@ -266,12 +382,28 @@
             y: {
               title: {
                 display: true,
-                text: dataLabel
+                text: 'Flow'
               }
             }
           }
         }
       });
+
+      charts.push(chart);
+    }
+
+    function getChartColor(index) {
+      var colors = [
+        'blue',
+        'green',
+        'red',
+        'orange',
+        'purple',
+        'brown',
+        'black'
+      ];
+
+      return colors[index % colors.length];
     }
 
     function downloadCurrentData() {
