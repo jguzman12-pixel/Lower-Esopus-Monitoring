@@ -355,7 +355,9 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
   <script>
-    var scriptUrl = 'https://script.google.com/macros/s/AKfycbzgnmlo_hbL7j8I9xKiNdS3dkuZ5izav7DYs1BCDW53vq81ECbI-0hJpLmvBmvfY774SA/exec';
+    // Set this to the new monitoring script's deployed /exec URL. Never add the upload key here.
+    var scriptUrl = 'https://script.google.com/macros/s/AKfycbwHfZLOyuLYDntr7imRHvln-21lMVeEYiDvDpetYpXW-Z7-9PkI6Xu5xlELVvXWiEar/exec';
+    var loadRequest = 0;
 
     var currentRows = [];
     var currentFileName = 'data.csv';
@@ -386,13 +388,13 @@
     }
 
     var stations = [
-      { id: 'station1', name: 'Station 1', lat: 42.0123, lng: -74.1234 },
-      { id: 'station2', name: 'Station 2', lat: 42.0456, lng: -74.1567 },
-      { id: 'station3', name: 'Station 3', lat: 42.0789, lng: -74.1890 },
-      { id: 'station4', name: 'Station 4', lat: 42.1012, lng: -74.2012 },
-      { id: 'station5', name: 'Station 5', lat: 42.1345, lng: -74.2345 },
-      { id: 'station6', name: 'Station 6', lat: 42.1678, lng: -74.2678 },
-      { id: 'station7', name: 'Station 7', lat: 42.1901, lng: -74.2901 }
+      { id: 'station1', name: 'Site A', lat: 41.92934722, lng: -74.20213056 },
+      { id: 'station2', name: 'Site B', lat: 41.87381389, lng: -74.14145833 },
+      { id: 'station3', name: 'Site C', lat: 41.89586667, lng: -74.09734722 },
+      { id: 'station4', name: 'Site D', lat: 41.92735833, lng: -74.06830556 },
+      { id: 'station5', name: 'Site E', lat: 41.98003333, lng: -74.01379722 },
+      { id: 'station6', name: 'Site F', lat: 42.02008333, lng: -73.99688611 },
+      { id: 'station7', name: 'Site G', lat: 42.03819167, lng: -73.97128889 }
     ];
 
     var map = L.map('map').setView([42.08, -74.18], 11);
@@ -436,24 +438,34 @@
     });
 
     async function loadSheetData(stationId, stationName, dataType) {
+      var request = ++loadRequest;
       var dataLabel = dataType === 'flow' ? 'Flow Data' : 'Water Quality Data';
 
       document.getElementById('dataTitle').textContent =
         stationName + ' - ' + dataLabel;
 
       try {
+        if (!scriptUrl) throw new Error('The new Google Sheets connection has not been deployed yet.');
+        document.getElementById('downloadButton').disabled = true;
+        currentRows = [];
+        destroyCharts();
+        clearWaterQualityControls();
+        document.getElementById('timeControls').hidden = true;
         var url =
           scriptUrl +
           '?station=' + encodeURIComponent(stationId) +
           '&type=' + encodeURIComponent(dataType);
 
-        var response = await fetch(url);
+        var response = await fetch(url, { credentials: 'omit', cache: 'no-store' });
 
         if (!response.ok) {
           throw new Error('Could not load data. Status: ' + response.status);
         }
 
         var rows = await response.json();
+        if (request !== loadRequest) return;
+        if (!Array.isArray(rows)) throw new Error(rows.error || 'Unexpected response from the data service.');
+        if (!rows.length || !rows.every(function (row) { return Array.isArray(row) && row.length === rows[0].length; })) throw new Error('Invalid data columns.');
 
         currentRows = rows;
         currentFileName = stationId + '_' + dataType + '.csv';
@@ -471,6 +483,7 @@
           updateFlowChart(getTimeFilteredRows(), stationName);
         }
       } catch (error) {
+        if (request !== loadRequest) return;
         document.getElementById('dataTitle').textContent =
           'Could not load ' + stationName + ' data: ' + error.message;
 
@@ -523,6 +536,10 @@
       );
     }
 
+    function sampleDate(value) {
+      return new Date(typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value + 'T00:00:00' : value);
+    }
+
     function dateToInputValue(date) {
       var year = date.getFullYear();
       var month = String(date.getMonth() + 1).padStart(2, '0');
@@ -533,7 +550,7 @@
 
     function configureTimeControls(rows) {
       var dates = rows.slice(1).map(function (row) {
-        return new Date(row[0]);
+        return sampleDate(row[0]);
       }).filter(function (date) {
         return !Number.isNaN(date.getTime());
       });
@@ -577,7 +594,7 @@
         : Infinity;
 
       var filteredData = currentRows.slice(1).filter(function (row) {
-        var rowTime = new Date(row[0]).getTime();
+        var rowTime = sampleDate(row[0]).getTime();
 
         return !Number.isNaN(rowTime) &&
           rowTime >= startTime &&
@@ -655,7 +672,7 @@
             datasets: [{
               label: header,
               data: dataRows.map(function (row) {
-                return Number(row[columnIndex]);
+                return chartValue(row[columnIndex]);
               }),
               borderColor: getChartColor(index),
               backgroundColor: 'transparent',
@@ -668,7 +685,7 @@
               x: {
                 title: {
                   display: true,
-                  text: 'Date'
+                  text: 'Sample time (recorded local)'
                 }
               },
               y: {
@@ -720,7 +737,7 @@
           datasets: [{
             label: 'Flow',
             data: dataRows.map(function (row) {
-              return Number(row[1]);
+              return chartValue(row[1]);
             }),
             borderColor: 'blue',
             backgroundColor: 'rgba(0, 0, 255, 0.1)',
@@ -733,7 +750,7 @@
             x: {
               title: {
                 display: true,
-                text: 'Date'
+                text: 'Sample time (recorded local)'
               }
             },
             y: {
@@ -747,6 +764,10 @@
       });
 
       charts.push(chart);
+    }
+
+    function chartValue(value) {
+      return typeof value === 'number' && Number.isFinite(value) ? value : null;
     }
 
     function getChartColor(index) {
