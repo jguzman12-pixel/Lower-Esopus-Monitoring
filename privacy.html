@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Privacy Policy | Lower Esopus Field Log</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #f5f8f6; color: #17352d; font: 1rem/1.65 system-ui, sans-serif; }
+    header { background: #174f42; color: white; }
+    header a { color: inherit; display: inline-block; padding-block: .75rem; font-weight: 650; }
+    .wrap { width: min(100% - 2.5rem, 46rem); margin-inline: auto; }
+    main { padding-block: 2rem 3rem; }
+    h1, h2 { line-height: 1.25; }
+    h1 { font-size: 2rem; margin: 0 0 .25rem; }
+    h2 { font-size: 1.25rem; margin: 1.75rem 0 .4rem; }
+    p { margin: .4rem 0 .9rem; }
+    a { color: #174f42; text-underline-offset: .16em; overflow-wrap: anywhere; }
+    .date { color: #50665d; font-size: .9rem; }
+  </style>
+</head>
+<body>
+  <header><div class="wrap"><a href="https://lower-esopus-monitoring.org/">Lower Esopus Monitoring</a></div></header>
+  <main class="wrap">
+    <h1>Field Log Privacy Policy</h1>
+    <p class="date">Last updated November 10, 2026</p>
+    <p>This policy covers the Lower Esopus Field Log mobile app and the monitoring records it syncs.</p>
+
+    <h2>What the app stores</h2>
+    <p>When you save an observation, the app stores the collector name, selected sampling site, sample date and time, time zone, measurements, and any notes you enter. It also stores a record ID, revision number, and timestamps to manage edits, retries, and confirmations. Observations are first saved on the device, even when you are offline. The app does not require a personal account or use advertising or tracking.</p>
+
+    <h2>Sync and publication</h2>
+    <p>When a team workbook is configured, the app sends saved observations over HTTPS to that workbook through Google Apps Script. The app stores the team's upload key in the device's secure storage and uses it to authorize uploads. Workbook administrators and people they grant access to can see the workbook records, including collector names and notes.</p>
+    <p>When the workbook administrator enables the public feed, the monitoring website can display and allow downloads of the sampling site, recorded sample time, and measurements. The feed does not include collector names, notes, record IDs, upload keys, or edit history.</p>
+
+    <h2>Maps, exports, and notifications</h2>
+    <p>The app does not read your device's GPS location. If you ask for directions, the app sends the selected site's coordinates to Apple Maps or Google Maps. That service handles your route and location permissions. If you export observations as a CSV, you choose where to send the file, which includes collector names and notes. Optional sync notifications are generated on the device and do not use a push notification service.</p>
+
+    <h2>Retention and deletion</h2>
+    <p>On-device observations remain until the app and its local data are removed. Uninstalling does not delete workbook records, prior revisions, or exported copies. The app does not automatically expire workbook records; the workbook administrator controls retention and deletion there. To request access, correction, or deletion, contact your workbook administrator or email <a href="mailto:jguzman12@manhattan.edu">jguzman12@manhattan.edu</a>. Copies already downloaded or shared are controlled by their recipients.</p>
+
+    <p><a href="support.html">Field Log support</a></p>
+  </main>
+</body>
+</html>
